@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1735787669010,
+      "tag": "0000_crazy_champions",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1735787824657,
+      "tag": "0001_oval_excalibur",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1735796396622,
+      "tag": "0002_odd_thena",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1735796412922,
+      "tag": "0003_stormy_madame_masque",
+      "breakpoints": true
+    }
+  ]
+}

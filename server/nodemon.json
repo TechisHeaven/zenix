@@ -1,0 +1,12 @@
+{
+  "watch": ["src", "config", "index.js"],
+  "ext": "ts,js,json",
+  "ignore": ["node_modules"],
+  "exec": "ts-node src/index.ts",
+  "env": {
+    "NODE_ENV": "development",
+    "PORT": "3000"
+  },
+  "delay": "500",
+  "legacyWatch": true
+}

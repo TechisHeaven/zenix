@@ -1,0 +1,20 @@
+CREATE TABLE "users" (
+	"user_id" uuid PRIMARY KEY NOT NULL,
+	"name" varchar(255),
+	"email" varchar(255),
+	"password" varchar(255),
+	"profile_image" varchar(255),
+	"bio" text,
+	"location" varchar(255),
+	"date_of_birth" timestamp,
+	"role" varchar(50) DEFAULT 'viewer',
+	"preferences" jsonb,
+	"last_login" timestamp,
+	"account_status" varchar(50) DEFAULT 'active',
+	"email_verified" boolean DEFAULT false,
+	"created_at" timestamp DEFAULT now(),
+	"updated_at" timestamp DEFAULT now(),
+	"premium" boolean DEFAULT false,
+	"watch_history" jsonb DEFAULT '[]'::jsonb,
+	CONSTRAINT "users_email_unique" UNIQUE("email")
+);
