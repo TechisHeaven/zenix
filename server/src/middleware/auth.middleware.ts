@@ -12,8 +12,8 @@ export function generateToken(payload: {
     expiresIn: JWT_EXPIRATION,
   });
 }
-export function generateTokenEmail(email: string, time: string) {
-  return jwt.sign({ email: email }, JWT_SECRET, {
+export function generateTokenPayload(payload: any, time: string) {
+  return jwt.sign({ ...payload }, JWT_SECRET, {
     expiresIn: time,
   });
 }
@@ -62,7 +62,7 @@ async function logout(req: Request, res: Response) {
 module.exports = {
   verifyJWT,
   generateToken,
-  generateTokenEmail,
+  generateTokenPayload,
   authenticateToken,
   logout,
 };

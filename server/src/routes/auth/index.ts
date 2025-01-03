@@ -10,17 +10,14 @@ import bcrypt from "bcrypt";
 import { v4 as uuidv4 } from "uuid";
 import {
   generateToken,
-  generateTokenEmail,
+  generateTokenPayload,
+  verifyJWT,
 } from "../../middleware/auth.middleware";
 import { eq } from "drizzle-orm";
 import { redis } from "../../config/redis.config";
 import { validateFields } from "../../utils/validate.config";
 import { createError } from "../../utils/error.utils";
-import { returnResponse } from "../../utils/response.utils";
-import {
-  JWT_EXPIRATION_EMAIL,
-  MAX_PASSWORD_LENGTH,
-} from "../../constants/main.constants";
+import { MAX_PASSWORD_LENGTH } from "../../constants/main.constants";
 import { sessions } from "../../db/schemas/main.scheam";
 import { ensureAuthenticated, ensureEmailVerified } from "../../server";
 import { sendMail } from "../../helper/email.helper";
@@ -30,34 +27,6 @@ import jwt from "jsonwebtoken";
 
 dotenv.config();
 const router = express.Router();
-
-router.get(
-  "/user",
-  ensureAuthenticated,
-  ensureEmailVerified,
-  async (req: any, res: any, next: NextFunction) => {
-    try {
-      const id = req.user.user_id;
-
-      if (!id) {
-        throw createError(401, "Something Went Wrong");
-      }
-      const user = await db.select().from(users).where(eq(users.user_id, id));
-
-      if (!user) {
-        throw createError(404, "User not found");
-      }
-      return res.status(200).json({
-        statusCode: 200,
-        ok: true,
-        message: "User fetched successfully",
-        data: { ...user[0] },
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
 
 router.post("/register", async (req: Request, res: any, next: NextFunction) => {
   try {
@@ -236,7 +205,7 @@ router.get(
 
     try {
       // Verify the token
-      const decoded = jwt.verify(token as string, process.env.JWT_SECRET!);
+      const decoded = verifyJWT(token as string);
 
       if (decoded) {
       }
@@ -284,6 +253,104 @@ router.get(
           .status(500)
           .json({ message: "An error occurred during token verification" });
       }
+    }
+  }
+);
+
+router.post(
+  "/forget-password",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        throw createError(404, "Email must be given");
+      }
+
+      const user = await db.select().from(users).where(eq(users.email, email));
+      if (!user[0]) {
+        throw createError(404, "User not found");
+      }
+
+      const token = generateTokenPayload({ user_id: user[0].user_id }, "1h");
+
+      const resetLink = `${sanitizedConfig.CLIENT_URL}/auth/reset-password/${token}`;
+
+      await sendMail(
+        email,
+        "Password Reset",
+        `Click here to reset your password: ${resetLink}`
+      );
+
+      res
+        .status(200)
+        .json({ message: "Password reset link sent to your email" });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Reset Password API
+router.post(
+  "/reset-password/:token",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { token } = req.params;
+      const { password } = req.body;
+
+      if (!password || !token) {
+        throw createError(400, "Password and token must be provided");
+      }
+
+      if (password.length < MAX_PASSWORD_LENGTH) {
+        throw createError(400, "Password must be more than 6 characters");
+      }
+
+      const decoded: any = verifyJWT(token);
+
+      const user = await db
+        .select()
+        .from(users)
+        .where(eq(users.user_id, decoded.user_id));
+      if (!user[0]) {
+        throw createError(404, "User not found");
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      await db
+        .update(users)
+        .set({ password: hashedPassword })
+        .where(eq(users.user_id, decoded.user_id));
+
+      res.status(200).json({ message: "Password reset successfully" });
+    } catch (error) {
+      if (error instanceof jwt.JsonWebTokenError) {
+        res.status(400).json({ message: "Invalid or expired token" });
+      } else {
+        next(error);
+      }
+    }
+  }
+);
+
+router.post(
+  "/logout",
+  ensureAuthenticated,
+  async (req: any, res: Response, next: NextFunction) => {
+    try {
+      const user_id = req.user.user_id;
+
+      // Remove session from Redis
+      await redis.del(user_id.toString());
+
+      // Remove session from database
+      await db.delete(sessions).where(eq(sessions.user_id, user_id));
+
+      res.status(200).json({ message: "Logged out successfully" });
+    } catch (error) {
+      next(error);
     }
   }
 );

@@ -2,14 +2,14 @@ import { redis } from "../config/redis.config";
 import { JWT_EXPIRATION_EMAIL } from "../constants/main.constants";
 import { sendMail } from "../helper/email.helper";
 import {
-  generateTokenEmail,
+  generateTokenPayload,
   generateToken,
 } from "../middleware/auth.middleware";
 import sanitizedConfig from "../utils/env.config";
 
 export async function handleEmail(email: string) {
   try {
-    const token = await generateTokenEmail(email, JWT_EXPIRATION_EMAIL);
+    const token = await generateTokenPayload(email, JWT_EXPIRATION_EMAIL);
     // Store the token in Redis with a 15-minute expiration
     await redis.set(token, email, { EX: 900 });
 
