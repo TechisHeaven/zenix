@@ -28,5 +28,4 @@ export const users = pgTable("users", {
     .defaultNow()
     .$onUpdateFn(() => new Date()),
   premium: boolean("premium").default(false), // Premium subscription status.
-  watch_history: jsonb("watch_history").default([]),
 });

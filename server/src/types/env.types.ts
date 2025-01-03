@@ -9,6 +9,10 @@ export type ENV = {
   EMAIL_PORT: number | undefined;
   EMAIL_SECURE: boolean | undefined;
   EMAIL_PASSWORD: string | undefined;
+  AWS_ACCESS_KEY_ID: string | undefined;
+  AWS_SECRET_ACCESS_KEY: string | undefined;
+  AWS_REGION: string | undefined;
+  AWS_BUCKET_NAME: string | undefined;
 };
 export type Config = {
   DATABASE: string;
@@ -21,4 +25,8 @@ export type Config = {
   EMAIL_PORT: number;
   EMAIL_SECURE: boolean;
   EMAIL_PASSWORD: string;
+  AWS_ACCESS_KEY_ID: string;
+  AWS_SECRET_ACCESS_KEY: string;
+  AWS_REGION: string;
+  AWS_BUCKET_NAME: string;
 };

@@ -12,6 +12,8 @@ import { DecodedJWTBody } from "./types/main.types";
 import db from "./db";
 import { users } from "./db/schemas/user.schema";
 import { eq } from "drizzle-orm";
+import { createError } from "./utils/error.utils";
+import statusCodes from "./utils/status.utils";
 
 dotenv.config();
 const app = express();
@@ -45,10 +47,18 @@ export async function ensureAuthenticated(req: any, res: any, next: () => any) {
       return res.status(401).send("Session expired or invalid");
     }
 
+    const user = await db
+      .select({ user_id: users.user_id })
+      .from(users)
+      .where(eq(users.user_id, decoded.user_id))
+      .then((result) => result[0]);
+
+    if (!user) throw createError(statusCodes.badRequest, "User not exists");
+
     req.user = decoded; // Add user information to request object
     next();
   } catch (err) {
-    return res.status(400).send("Invalid token");
+    return res.status(400).send(err || "Invalid token");
   }
 }
 export async function ensureEmailVerified(req: any, res: any, next: () => any) {

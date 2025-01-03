@@ -24,6 +24,7 @@ import { sendMail } from "../../helper/email.helper";
 import sanitizedConfig from "../../utils/env.config";
 import { handleEmail } from "../../service/email.service";
 import jwt from "jsonwebtoken";
+import { uuidRegexTest } from "../../utils/uuidRegexTest";
 
 dotenv.config();
 const router = express.Router();
@@ -133,6 +134,9 @@ router.post("/login", async (req: Request, res: any, next: NextFunction) => {
     }
 
     const user_id = user[0].user_id;
+
+    if (!uuidRegexTest(user_id))
+      throw createError(400, "Invalid user ID format");
     // Generate JWT token
     const token = generateToken({
       user_id,
@@ -341,6 +345,9 @@ router.post(
   async (req: any, res: Response, next: NextFunction) => {
     try {
       const user_id = req.user.user_id;
+
+      if (!uuidRegexTest(user_id))
+        throw createError(400, "Invalid user ID format");
 
       // Remove session from Redis
       await redis.del(user_id.toString());

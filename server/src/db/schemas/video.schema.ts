@@ -32,7 +32,7 @@ export const videos = pgTable("videos", {
   is_public: boolean("is_public").default(true),
   is_exclusive_for_premium: boolean("is_exclusive_for_premium").default(false), // For premium users.
   download_count: integer("download_count").default(0),
-  created_at: timestamp("created_at").defaultNow(),
+  uploaded_at: timestamp("uploaded_at").defaultNow(),
   updated_at: timestamp("updated_at")
     .defaultNow()
     .$onUpdateFn(() => new Date()),
