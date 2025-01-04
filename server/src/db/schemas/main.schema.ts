@@ -74,6 +74,7 @@ export const video_statistics = pgTable("video_statistics", {
   }),
   total_views: integer("total_views").default(0),
   total_likes: integer("total_likes").default(0),
+  total_dislikes: integer("total_likes").default(0),
   total_comments: integer("total_comments").default(0),
   total_shares: integer("total_shares").default(0),
   total_watch_time: integer("total_watch_time").default(0),

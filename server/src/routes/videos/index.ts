@@ -5,7 +5,12 @@ import { createError } from "../../utils/error.utils";
 import db from "../../db";
 import { and, eq, ilike } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
-import { videos } from "../../db/schemas/video.schema";
+import {
+  comments,
+  video_likes,
+  video_reports,
+  videos,
+} from "../../db/schemas/video.schema";
 import { uuidRegexTest } from "../../utils/uuidRegexTest";
 import multer from "multer";
 import multerS3 from "multer-s3";
@@ -14,6 +19,7 @@ import statusCodes from "../../utils/status.utils";
 import sanitizedConfig from "../../utils/env.config";
 import { validateFields } from "../../utils/validate.config";
 import { upload_video_files } from "../../constants/requiredfields.constants";
+import { video_statistics } from "../../db/schemas/main.schema";
 
 dotenv.config();
 const router = express.Router();
@@ -80,16 +86,22 @@ router.post(
 
       // Save video details to the database
       const video_id = uuidv4();
-      const result = await db.insert(videos).values({
-        video_id,
-        user_id,
-        title,
-        description,
-        url: file.location,
-        file_size: file.size,
-      });
+      const stat_id = uuidv4();
 
-      console.log(result);
+      await db.transaction(async (tx) => {
+        await tx.insert(videos).values({
+          video_id,
+          user_id,
+          title,
+          description,
+          url: file.location,
+          file_size: file.size,
+        });
+        await tx.insert(video_statistics).values({
+          stat_id,
+          video_id,
+        });
+      });
 
       res.status(statusCodes.created).json({
         statusCode: statusCodes.created,
@@ -237,4 +249,417 @@ router.delete(
   }
 );
 
+// Like Video API
+router.post(
+  "/:video_id/like",
+  ensureAuthenticated,
+  async (req: any, res: Response, next: NextFunction) => {
+    try {
+      const { video_id } = req.params;
+      const user_id = req.user.user_id;
+
+      if (!uuidRegexTest(video_id))
+        throw createError(statusCodes.badRequest, "Invalid Video Id");
+
+      // Check if the video exists
+      const video = await db
+        .select()
+        .from(videos)
+        .where(eq(videos.video_id, video_id))
+        .then((res) => res[0]);
+      if (!video) {
+        throw createError(statusCodes.notFound, "Video not found");
+      }
+
+      const existingLike = await db
+        .select()
+        .from(video_likes)
+        .where(
+          and(
+            eq(video_likes.video_id, video_id),
+            eq(video_likes.user_id, user_id)
+          )
+        );
+
+      if (existingLike.length > 0) {
+        await db.transaction(async (tx) => {
+          await tx
+            .delete(video_likes)
+            .where(
+              and(
+                eq(video_likes.video_id, video_id),
+                eq(video_likes.user_id, user_id)
+              )
+            );
+          await tx
+            .update(videos)
+            .set({
+              likes_count: video.likes_count === 0 ? 0 : video.likes_count! - 1,
+            })
+            .where(eq(videos.video_id, video_id));
+          await tx
+            .update(video_statistics)
+            .set({
+              video_id,
+              total_likes: video.likes_count === 0 ? 0 : video.likes_count! - 1,
+            })
+            .where(eq(video_statistics.video_id, video_id));
+        });
+      } else {
+        // Add like to the database
+        await db.insert(video_likes).values({
+          video_id,
+          user_id,
+          is_like: true,
+        });
+
+        const currentLikes = await db
+          .select({ likes_count: videos.likes_count })
+          .from(videos)
+          .where(eq(videos.video_id, video_id))
+          .then((res) => res[0].likes_count);
+
+        // Update the likes count in the videos table and statistics table
+        await db.transaction(async (tx) => {
+          await tx
+            .update(videos)
+            .set({
+              likes_count: currentLikes! + 1,
+            })
+            .where(eq(videos.video_id, video_id));
+          // Add like to the database
+          await tx
+            .update(video_statistics)
+            .set({
+              video_id,
+              total_likes: currentLikes! + 1,
+            })
+            .where(eq(video_statistics.video_id, video_id));
+        });
+      }
+      res.status(statusCodes.ok).json({
+        statusCode: statusCodes.ok,
+        ok: true,
+        message: "Video liked successfully",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+// Dislike Video API
+router.post(
+  "/:video_id/dislike",
+  ensureAuthenticated,
+  async (req: any, res: Response, next: NextFunction) => {
+    try {
+      const { video_id } = req.params;
+      const user_id = req.user.user_id;
+
+      if (!uuidRegexTest(video_id))
+        throw createError(statusCodes.badRequest, "Invalid Video Id");
+
+      // Check if the video exists
+      const video = await db
+        .select()
+        .from(videos)
+        .where(eq(videos.video_id, video_id))
+        .then((res) => res[0]);
+      if (!video) {
+        throw createError(statusCodes.notFound, "Video not found");
+      }
+
+      const existingLike = await db
+        .select()
+        .from(video_likes)
+        .where(
+          and(
+            eq(video_likes.video_id, video_id),
+            eq(video_likes.user_id, user_id)
+          )
+        );
+
+      if (existingLike.length > 0) {
+        await db.transaction(async (tx) => {
+          await tx
+            .delete(video_likes)
+            .where(
+              and(
+                eq(video_likes.video_id, video_id),
+                eq(video_likes.user_id, user_id)
+              )
+            );
+          // Decrement dislikes count
+          await tx
+            .update(videos)
+            .set({
+              dislikes_count:
+                video.dislikes_count === 0 ? 0 : video.dislikes_count! - 1,
+            })
+            .where(eq(videos.video_id, video_id));
+          await tx
+            .update(video_statistics)
+            .set({
+              total_dislikes:
+                video.dislikes_count === 0 ? 0 : video.dislikes_count! - 1,
+            })
+            .where(eq(videos.video_id, video_id));
+        });
+      } else {
+        // Add like to the database
+        await db.insert(video_likes).values({
+          video_id,
+          user_id,
+          is_like: false,
+        });
+
+        const currentLikes = await db
+          .select({ likes_count: videos.likes_count })
+          .from(videos)
+          .where(eq(videos.video_id, video_id))
+          .then((res) => res[0].likes_count);
+
+        // Update the likes count in the videos table and statistics table
+        await db.transaction(async (tx) => {
+          await tx
+            .update(videos)
+            .set({
+              dislikes_count: currentLikes === 0 ? 0 : currentLikes! - 1,
+            })
+            .where(eq(videos.video_id, video_id));
+          // Add like to the database
+          await tx
+            .update(video_statistics)
+            .set({
+              video_id,
+              total_likes: currentLikes === 0 ? 0 : currentLikes! - 1,
+            })
+            .where(eq(video_statistics.video_id, video_id));
+        });
+      }
+
+      res.status(statusCodes.ok).json({
+        statusCode: statusCodes.ok,
+        ok: true,
+        message: "Video Disliked successfully",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.post(
+  "/:video_id/comments",
+  ensureAuthenticated,
+  async (req: any, res: Response, next: NextFunction) => {
+    try {
+      const { video_id } = req.params;
+      const user_id = req.user.user_id;
+      const { comment } = req.body;
+
+      if (!comment)
+        throw createError(statusCodes.badRequest, "Comment is required");
+
+      if (!uuidRegexTest(video_id))
+        throw createError(statusCodes.badRequest, "Invalid Video Id");
+
+      // Check if the video exists
+      const video = await db
+        .select()
+        .from(videos)
+        .where(eq(videos.video_id, video_id))
+        .then((res) => res[0]);
+
+      if (!video) {
+        throw createError(statusCodes.notFound, "Video not found");
+      }
+
+      await db.transaction(async (tx) => {
+        // Add comment to the database
+        await tx.insert(comments).values({
+          comment_id: uuidv4(),
+          video_id,
+          user_id,
+          comment,
+          created_at: new Date(),
+        });
+        // Increment comments count
+        await tx
+          .update(videos)
+          .set({
+            comments_count: video.comments_count! + 1,
+          })
+          .where(eq(videos.video_id, video_id));
+
+        await tx
+          .update(video_statistics)
+          .set({
+            total_comments: video.comments_count! + 1,
+          })
+          .where(eq(videos.video_id, video_id));
+      });
+
+      res.status(statusCodes.created).json({
+        statusCode: statusCodes.created,
+        ok: true,
+        message: "Comment added successfully",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+router.delete(
+  "/:video_id/comments",
+  ensureAuthenticated,
+  async (req: any, res: Response, next: NextFunction) => {
+    try {
+      const { video_id } = req.params;
+      const user_id = req.user.user_id;
+
+      if (!uuidRegexTest(video_id))
+        throw createError(statusCodes.badRequest, "Invalid Video Id");
+
+      // Check if the video exists
+      const video = await db
+        .select()
+        .from(videos)
+        .where(eq(videos.video_id, video_id))
+        .then((res) => res[0]);
+
+      if (!video) {
+        throw createError(statusCodes.notFound, "Video not found");
+      }
+
+      await db.transaction(async (tx) => {
+        // Add comment to the database
+        await tx
+          .delete(comments)
+          .where(
+            and(
+              eq(video_likes.video_id, video_id),
+              eq(video_likes.user_id, user_id)
+            )
+          );
+
+        // Decrement comments count
+        await tx
+          .update(videos)
+          .set({
+            comments_count:
+              video.comments_count === 0 ? 0 : video.comments_count! - 1,
+          })
+          .where(eq(videos.video_id, video_id));
+
+        await tx
+          .update(video_statistics)
+          .set({
+            total_comments:
+              video.comments_count === 0 ? 0 : video.comments_count! - 1,
+          })
+          .where(eq(videos.video_id, video_id));
+      });
+
+      res.status(statusCodes.created).json({
+        statusCode: statusCodes.created,
+        ok: true,
+        message: "Comment added successfully",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Get Comments API
+router.get(
+  "/:video_id/comments",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { video_id } = req.params;
+
+      if (!video_id)
+        throw createError(statusCodes.badRequest, "Video Id is required");
+
+      if (!uuidRegexTest(video_id))
+        throw createError(statusCodes.badRequest, "Invalid Video Id");
+      // Check if the video exists
+      const video = await db
+        .select()
+        .from(videos)
+        .where(eq(videos.video_id, video_id))
+        .then((res) => res[0]);
+      if (!video) {
+        throw createError(statusCodes.notFound, "Video not found");
+      }
+
+      // Get comments from the database
+      const videoComments = await db
+        .select()
+        .from(comments)
+        .where(eq(comments.video_id, video_id));
+
+      res.status(statusCodes.ok).json({
+        statusCode: statusCodes.ok,
+        ok: true,
+        message: "Comments fetched successfully",
+        data: {
+          comments: videoComments,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.post(
+  "/:video_id/report",
+  ensureAuthenticated,
+  async (req: any, res: Response, next: NextFunction) => {
+    try {
+      const { video_id } = req.params;
+      const user_id = req.user.user_id;
+      const { reason } = req.body;
+
+      const validate = validateFields(["reason", "video_id", "user_id"], {
+        video_id,
+        user_id,
+        reason,
+      });
+      if (!validate.isValid)
+        throw createError(
+          statusCodes.badRequest,
+          `Missing Fields ${validate.missingFields}`
+        );
+
+      // Check if the video exists
+      const video = await db
+        .select()
+        .from(videos)
+        .where(eq(videos.video_id, video_id));
+      if (!video[0]) {
+        throw createError(statusCodes.notFound, "Video not found");
+      }
+
+      // Add report to the database
+      await db.insert(video_reports).values({
+        report_id: uuidv4(),
+        video_id,
+        user_id,
+        reason,
+        created_at: new Date(),
+      });
+
+      res.status(statusCodes.created).json({
+        statusCode: statusCodes.created,
+        ok: true,
+        message: "Video reported successfully",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 export default router;

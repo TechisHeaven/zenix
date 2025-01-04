@@ -8,7 +8,7 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import { MAX_PASSWORD_LENGTH } from "../../constants/main.constants";
 import { redis } from "../../config/redis.config";
-import { sessions, watch_history } from "../../db/schemas/main.scheam";
+import { sessions, watch_history } from "../../db/schemas/main.schema";
 import { v4 as uuidv4 } from "uuid";
 import { videos } from "../../db/schemas/video.schema";
 import { uuidRegexTest } from "../../utils/uuidRegexTest";

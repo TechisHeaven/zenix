@@ -7,7 +7,7 @@ import {
   boolean,
   jsonb,
 } from "drizzle-orm/pg-core";
-import { watch_history } from "./main.scheam";
+import { watch_history } from "./main.schema";
 
 export const users = pgTable("users", {
   user_id: uuid("user_id").primaryKey(),

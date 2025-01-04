@@ -18,7 +18,7 @@ import { redis } from "../../config/redis.config";
 import { validateFields } from "../../utils/validate.config";
 import { createError } from "../../utils/error.utils";
 import { MAX_PASSWORD_LENGTH } from "../../constants/main.constants";
-import { sessions } from "../../db/schemas/main.scheam";
+import { sessions } from "../../db/schemas/main.schema";
 import { ensureAuthenticated, ensureEmailVerified } from "../../server";
 import { sendMail } from "../../helper/email.helper";
 import sanitizedConfig from "../../utils/env.config";
