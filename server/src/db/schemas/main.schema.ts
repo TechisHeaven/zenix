@@ -66,22 +66,22 @@ export const playlist_videos = pgTable("playlist_videos", {
   added_at: timestamp("added_at").defaultNow(),
 });
 
-export const video_statistics = pgTable("video_statistics", {
-  stat_id: uuid("stat_id").primaryKey(),
-  video_id: uuid("video_id").references(() => videos.video_id, {
-    onDelete: "cascade",
-    onUpdate: "cascade",
-  }),
-  total_views: integer("total_views").default(0),
-  total_likes: integer("total_likes").default(0),
-  total_dislikes: integer("total_likes").default(0),
-  total_comments: integer("total_comments").default(0),
-  total_shares: integer("total_shares").default(0),
-  total_watch_time: integer("total_watch_time").default(0),
-  premium_views: integer("premium_views").default(0),
-  average_watch_time: integer("average_watch_time"),
-  highest_watch_time: integer("highest_watch_time"),
-});
+// export const video_statistics = pgTable("video_statistics", {
+//   stat_id: uuid("stat_id").primaryKey(),
+//   video_id: uuid("video_id").references(() => videos.video_id, {
+//     onDelete: "cascade",
+//     onUpdate: "cascade",
+//   }),
+//   total_views: integer("total_views").default(0),
+//   total_likes: integer("total_likes").default(0),
+//   total_dislikes: integer("total_likes").default(0),
+//   total_comments: integer("total_comments").default(0),
+//   total_shares: integer("total_shares").default(0),
+//   total_watch_time: integer("total_watch_time").default(0),
+//   premium_views: integer("premium_views").default(0),
+//   average_watch_time: integer("average_watch_time"),
+//   highest_watch_time: integer("highest_watch_time"),
+// });
 
 export const download_history = pgTable("download_history", {
   download_id: uuid("download_id").primaryKey(),

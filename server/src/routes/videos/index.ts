@@ -19,7 +19,7 @@ import statusCodes from "../../utils/status.utils";
 import sanitizedConfig from "../../utils/env.config";
 import { validateFields } from "../../utils/validate.config";
 import { upload_video_files } from "../../constants/requiredfields.constants";
-import { video_statistics } from "../../db/schemas/main.schema";
+// import { video_statistics } from "../../db/schemas/main.schema";
 
 dotenv.config();
 const router = express.Router();
@@ -60,18 +60,12 @@ router.post(
   async (req: any, res: Response, next: NextFunction) => {
     try {
       const user_id = req.user.user_id;
-      const { title, description } =
-        typeof req.body.metadata === "string"
-          ? JSON.parse(req.body.metadata)
-          : req.body.metadata || {};
+      // const metadata = req.body.metadata;
+      // console.log(metadata);
+      const { title, description } = req.body;
+      // typeof metadata === "string" ? JSON.parse(metadata) : metadata || {};
 
       const file = req.file;
-      if (file.mimetype !== "video/mp4" && file.mimetype !== "video/mkv") {
-        throw createError(
-          statusCodes.badRequest,
-          "Only video files are allowed"
-        );
-      }
 
       const validate = validateFields(upload_video_files, {
         title,
@@ -82,6 +76,13 @@ router.post(
         throw createError(404, `Missing Fields ${validate.missingFields}`);
       if (!file) {
         throw createError(statusCodes.badRequest, "No file uploaded");
+      }
+
+      if (file.mimetype !== "video/mp4" && file.mimetype !== "video/mkv") {
+        throw createError(
+          statusCodes.badRequest,
+          "Only video files are allowed"
+        );
       }
 
       // Save video details to the database
@@ -97,10 +98,10 @@ router.post(
           url: file.location,
           file_size: file.size,
         });
-        await tx.insert(video_statistics).values({
-          stat_id,
-          video_id,
-        });
+        // await tx.insert(video_statistics).values({
+        //   stat_id,
+        //   video_id,
+        // });
       });
 
       res.status(statusCodes.created).json({
@@ -283,31 +284,56 @@ router.post(
 
       if (existingLike.length > 0) {
         await db.transaction(async (tx) => {
-          await tx
-            .delete(video_likes)
-            .where(
-              and(
-                eq(video_likes.video_id, video_id),
-                eq(video_likes.user_id, user_id)
-              )
-            );
-          await tx
-            .update(videos)
-            .set({
-              likes_count: video.likes_count === 0 ? 0 : video.likes_count! - 1,
-            })
-            .where(eq(videos.video_id, video_id));
-          await tx
-            .update(video_statistics)
-            .set({
-              video_id,
-              total_likes: video.likes_count === 0 ? 0 : video.likes_count! - 1,
-            })
-            .where(eq(video_statistics.video_id, video_id));
+          if (existingLike[0].is_like) {
+            await tx
+              .delete(video_likes)
+              .where(
+                and(
+                  eq(video_likes.video_id, video_id),
+                  eq(video_likes.user_id, user_id)
+                )
+              );
+            await tx
+              .update(videos)
+              .set({
+                likes_count:
+                  video.likes_count === 0 ? 0 : video.likes_count! - 1,
+              })
+              .where(eq(videos.video_id, video_id));
+          } else {
+            await tx
+              .update(video_likes)
+              .set({
+                is_like: true,
+              })
+              .where(
+                and(
+                  eq(video_likes.video_id, video_id),
+                  eq(video_likes.user_id, user_id)
+                )
+              );
+            await tx
+              .update(videos)
+              .set({
+                likes_count: video.likes_count! + 1,
+                dislikes_count:
+                  video.dislikes_count === 0 ? 0 : video.dislikes_count! - 1,
+              })
+              .where(eq(videos.video_id, video_id));
+          }
+          // await tx
+          //   .update(video_statistics)
+          //   .set({
+          //     video_id,
+          //     total_likes: video.likes_count === 0 ? 0 : video.likes_count! - 1,
+          //   })
+          //   .where(eq(video_statistics.video_id, video_id));
         });
       } else {
+        const video_like_id = uuidv4();
         // Add like to the database
         await db.insert(video_likes).values({
+          like_id: video_like_id,
           video_id,
           user_id,
           is_like: true,
@@ -328,13 +354,13 @@ router.post(
             })
             .where(eq(videos.video_id, video_id));
           // Add like to the database
-          await tx
-            .update(video_statistics)
-            .set({
-              video_id,
-              total_likes: currentLikes! + 1,
-            })
-            .where(eq(video_statistics.video_id, video_id));
+          // await tx
+          //   .update(video_statistics)
+          //   .set({
+          //     video_id,
+          //     total_likes: currentLikes! + 1,
+          //   })
+          //   .where(eq(video_statistics.video_id, video_id));
         });
       }
       res.status(statusCodes.ok).json({
@@ -379,35 +405,69 @@ router.post(
           )
         );
 
+      console.log(
+        "Dislike: ",
+        video.dislikes_count,
+        "like: ",
+        video.likes_count
+      );
+
       if (existingLike.length > 0) {
         await db.transaction(async (tx) => {
-          await tx
-            .delete(video_likes)
-            .where(
-              and(
-                eq(video_likes.video_id, video_id),
-                eq(video_likes.user_id, user_id)
-              )
-            );
-          // Decrement dislikes count
-          await tx
-            .update(videos)
-            .set({
-              dislikes_count:
-                video.dislikes_count === 0 ? 0 : video.dislikes_count! - 1,
-            })
-            .where(eq(videos.video_id, video_id));
-          await tx
-            .update(video_statistics)
-            .set({
-              total_dislikes:
-                video.dislikes_count === 0 ? 0 : video.dislikes_count! - 1,
-            })
-            .where(eq(videos.video_id, video_id));
+          if (!existingLike[0].is_like) {
+            await tx
+              .delete(video_likes)
+              .where(
+                and(
+                  eq(video_likes.video_id, video_id),
+                  eq(video_likes.user_id, user_id)
+                )
+              );
+
+            await tx
+              .update(videos)
+              .set({
+                dislikes_count:
+                  video.dislikes_count === 0 ? 0 : video.dislikes_count! - 1,
+              })
+              .where(eq(videos.video_id, video_id));
+          } else {
+            await tx
+              .update(video_likes)
+              .set({
+                is_like: false,
+              })
+              .where(
+                and(
+                  eq(video_likes.video_id, video_id),
+                  eq(video_likes.user_id, user_id)
+                )
+              );
+
+            console.log("dislikedcount ", video.dislikes_count);
+            await tx
+              .update(videos)
+              .set({
+                dislikes_count:
+                  video.dislikes_count! === 0 ? 1 : video.dislikes_count! + 1,
+                likes_count:
+                  video.likes_count === 0 ? 0 : video.likes_count! - 1,
+              })
+              .where(eq(videos.video_id, video_id));
+          }
+          // await tx
+          //   .update(video_statistics)
+          //   .set({
+          //     total_dislikes:
+          //       video.dislikes_count === 0 ? 0 : video.dislikes_count! - 1,
+          //   })
+          //   .where(eq(video_statistics.video_id, video_id));
         });
       } else {
+        const video_like_id = uuidv4();
         // Add like to the database
         await db.insert(video_likes).values({
+          like_id: video_like_id,
           video_id,
           user_id,
           is_like: false,
@@ -424,17 +484,17 @@ router.post(
           await tx
             .update(videos)
             .set({
-              dislikes_count: currentLikes === 0 ? 0 : currentLikes! - 1,
+              dislikes_count: currentLikes === 0 ? 1 : currentLikes! + 1,
             })
             .where(eq(videos.video_id, video_id));
           // Add like to the database
-          await tx
-            .update(video_statistics)
-            .set({
-              video_id,
-              total_likes: currentLikes === 0 ? 0 : currentLikes! - 1,
-            })
-            .where(eq(video_statistics.video_id, video_id));
+          // await tx
+          //   .update(video_statistics)
+          //   .set({
+          //     video_id,
+          //     total_likes: currentLikes === 0 ? 0 : currentLikes! + 1,
+          //   })
+          //   .where(eq(video_statistics.video_id, video_id));
         });
       }
 
@@ -492,12 +552,12 @@ router.post(
           })
           .where(eq(videos.video_id, video_id));
 
-        await tx
-          .update(video_statistics)
-          .set({
-            total_comments: video.comments_count! + 1,
-          })
-          .where(eq(videos.video_id, video_id));
+        // await tx
+        //   .update(video_statistics)
+        //   .set({
+        //     total_comments: video.comments_count! + 1,
+        //   })
+        //   .where(eq(videos.video_id, video_id));
       });
 
       res.status(statusCodes.created).json({
@@ -552,13 +612,13 @@ router.delete(
           })
           .where(eq(videos.video_id, video_id));
 
-        await tx
-          .update(video_statistics)
-          .set({
-            total_comments:
-              video.comments_count === 0 ? 0 : video.comments_count! - 1,
-          })
-          .where(eq(videos.video_id, video_id));
+        // await tx
+        //   .update(video_statistics)
+        //   .set({
+        //     total_comments:
+        //       video.comments_count === 0 ? 0 : video.comments_count! - 1,
+        //   })
+        //   .where(eq(videos.video_id, video_id));
       });
 
       res.status(statusCodes.created).json({
@@ -656,6 +716,88 @@ router.post(
         statusCode: statusCodes.created,
         ok: true,
         message: "Video reported successfully",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.get(
+  "/:video_id/analytics",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { video_id } = req.params;
+
+      if (!uuidRegexTest(video_id))
+        throw createError(statusCodes.badRequest, "Invalid Video Id");
+
+      // Check if the video exists
+      const video = await db
+        .select()
+        .from(videos)
+        .where(eq(videos.video_id, video_id))
+        .then((res) => res[0]);
+      if (!video) {
+        throw createError(statusCodes.notFound, "Video not found");
+      }
+
+      // Fetch video analytics
+      const analytics = await db
+        .select({
+          views: videos.views,
+          likes: videos.likes_count,
+          dislikes: videos.dislikes_count,
+          comments: videos.comments_count,
+        })
+        .from(videos)
+        .where(eq(videos.video_id, video_id))
+        .then((res) => res[0]);
+
+      res.status(statusCodes.ok).json({
+        statusCode: statusCodes.ok,
+        ok: true,
+        message: "Video analytics fetched successfully",
+        data: analytics,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.post(
+  "/:video_id/premium",
+  ensureAuthenticated,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { video_id } = req.params;
+      const { isPremium } = req.body;
+
+      if (!uuidRegexTest(video_id))
+        throw createError(statusCodes.badRequest, "Invalid Video Id");
+
+      // Check if the video exists
+      const video = await db
+        .select()
+        .from(videos)
+        .where(eq(videos.video_id, video_id));
+      if (!video[0]) {
+        throw createError(statusCodes.notFound, "Video not found");
+      }
+
+      // Update video premium status
+      await db
+        .update(videos)
+        .set({
+          is_exclusive_for_premium: isPremium,
+        })
+        .where(eq(videos.video_id, video_id));
+
+      res.status(statusCodes.ok).json({
+        statusCode: statusCodes.ok,
+        ok: true,
+        message: "Video premium status updated successfully",
       });
     } catch (error) {
       next(error);

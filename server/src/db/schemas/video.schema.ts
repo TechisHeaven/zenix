@@ -53,17 +53,14 @@ export const comments = pgTable("comments", {
 });
 
 export const video_likes = pgTable("video_likes", {
-  video_id: uuid("video_id")
-    .references(() => videos.video_id, {
-      onDelete: "cascade",
-    })
-    .primaryKey(),
-  user_id: uuid("user_id")
-    .references(() => users.user_id, {
-      onDelete: "cascade",
-    })
-    .primaryKey(),
-  is_like: boolean("is_like").default(true), // true for like, false for dislike
+  like_id: uuid("like_id").primaryKey(),
+  video_id: uuid("video_id").references(() => videos.video_id, {
+    onDelete: "cascade",
+  }),
+  user_id: uuid("user_id").references(() => users.user_id, {
+    onDelete: "cascade",
+  }),
+  is_like: boolean("is_like").default(true),
   created_at: timestamp("created_at").defaultNow(),
 });
 
