@@ -130,17 +130,40 @@ router.get(
       const video = await db
         .select()
         .from(videos)
-        .where(eq(videos.video_id, video_id));
+        .where(eq(videos.video_id, video_id))
+        .leftJoin(comments, eq(comments.video_id, video_id));
+
       if (!video[0]) {
         throw createError(statusCodes.notFound, "Video not found");
       }
+
+      const result = video.reduce((acc: any[], current: any) => {
+        const { videos: video, comments: comment } = current;
+
+        // Check if the video is already added to the accumulator
+        let videoEntry = acc.find(
+          (v: { video_id: string }) => v.video_id === video.video_id
+        );
+        if (!videoEntry) {
+          // Add the video and initialize its comments array
+          videoEntry = { ...video, comments: [] };
+          acc.push(videoEntry);
+        }
+
+        // Add the comment if it exists
+        if (comment) {
+          videoEntry.comments.push(comment);
+        }
+
+        return acc;
+      }, [])[0];
 
       res.status(statusCodes.ok).json({
         statusCode: statusCodes.ok,
         ok: true,
         message: "Video fetched successfully",
         data: {
-          video: video[0],
+          ...result,
         },
       });
     } catch (error) {
@@ -405,13 +428,6 @@ router.post(
           )
         );
 
-      console.log(
-        "Dislike: ",
-        video.dislikes_count,
-        "like: ",
-        video.likes_count
-      );
-
       if (existingLike.length > 0) {
         await db.transaction(async (tx) => {
           if (!existingLike[0].is_like) {
@@ -444,7 +460,6 @@ router.post(
                 )
               );
 
-            console.log("dislikedcount ", video.dislikes_count);
             await tx
               .update(videos)
               .set({
@@ -571,15 +586,17 @@ router.post(
   }
 );
 router.delete(
-  "/:video_id/comments",
+  "/:video_id/comment/:comment_id",
   ensureAuthenticated,
   async (req: any, res: Response, next: NextFunction) => {
     try {
-      const { video_id } = req.params;
+      const { video_id, comment_id } = req.params;
       const user_id = req.user.user_id;
 
       if (!uuidRegexTest(video_id))
         throw createError(statusCodes.badRequest, "Invalid Video Id");
+      if (!uuidRegexTest(comment_id))
+        throw createError(statusCodes.badRequest, "Invalid Comment Id");
 
       // Check if the video exists
       const video = await db
@@ -598,8 +615,9 @@ router.delete(
           .delete(comments)
           .where(
             and(
-              eq(video_likes.video_id, video_id),
-              eq(video_likes.user_id, user_id)
+              eq(comments.video_id, video_id),
+              eq(comments.user_id, user_id),
+              eq(comments.comment_id, comment_id)
             )
           );
 
@@ -624,7 +642,7 @@ router.delete(
       res.status(statusCodes.created).json({
         statusCode: statusCodes.created,
         ok: true,
-        message: "Comment added successfully",
+        message: "Comment Deleted successfully",
       });
     } catch (error) {
       next(error);
@@ -777,6 +795,8 @@ router.post(
       if (!uuidRegexTest(video_id))
         throw createError(statusCodes.badRequest, "Invalid Video Id");
 
+      if (!isPremium)
+        throw createError(statusCodes.badRequest, "values must be provided");
       // Check if the video exists
       const video = await db
         .select()
