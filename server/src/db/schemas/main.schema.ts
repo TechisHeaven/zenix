@@ -98,6 +98,19 @@ export const download_history = pgTable("download_history", {
   added_at: timestamp("added_at").defaultNow(),
 });
 
+export const subscriptions = pgTable("subscriptions", {
+  subscription_id: uuid("subscription_id").primaryKey(),
+  user_id: uuid("user_id").references(() => users.user_id, {
+    onDelete: "cascade",
+    onUpdate: "cascade",
+  }),
+  plan_id: text("plan_id"),
+  payment_details: jsonb("payment_details"),
+  status: text("status"),
+  subscribed_at: timestamp("subscribed_at").defaultNow(),
+  cancelled_at: timestamp("cancelled_at"),
+});
+
 export const admin_logs = pgTable("admin_logs", {
   log_id: uuid("log_id").primaryKey(),
   admin_id: uuid("admin_id").references(() => users.user_id, {

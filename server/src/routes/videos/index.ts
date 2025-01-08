@@ -1,3 +1,4 @@
+import { subscriptions } from "./../../db/schemas/main.schema";
 import dotenv from "dotenv";
 import express, { NextFunction, Request, Response } from "express";
 import { ensureAuthenticated, ensureEmailVerified } from "../../server";
@@ -38,6 +39,7 @@ const upload = multer({
   storage: multerS3({
     s3: s3,
     bucket: sanitizedConfig.AWS_BUCKET_NAME!,
+    serverSideEncryption: "AES256",
     key: function (req, file, cb) {
       cb(null, `videos/${uuidv4()}_${file.originalname}`);
     },
@@ -119,25 +121,44 @@ router.post(
 // Get Video Details API
 router.get(
   "/:video_id",
-  async (req: Request, res: Response, next: NextFunction) => {
+  ensureAuthenticated,
+  async (req: any, res: Response, next: NextFunction) => {
     try {
+      const user_id = req.user.user_id;
       const { video_id } = req.params;
 
       if (!uuidRegexTest(video_id)) {
         throw createError(statusCodes.badRequest, "Invalid Video Id");
       }
 
+      const subscriptions_user = await db
+        .select()
+        .from(subscriptions)
+        .where(eq(subscriptions.user_id, user_id))
+        .then((res) => res[0]);
+
       const video = await db
         .select()
         .from(videos)
         .where(eq(videos.video_id, video_id))
-        .leftJoin(comments, eq(comments.video_id, video_id));
+        .leftJoin(comments, eq(comments.video_id, video_id))
+        .then((res) => res[0]);
 
-      if (!video[0]) {
+      if (!video) {
         throw createError(statusCodes.notFound, "Video not found");
       }
 
-      const result = video.reduce((acc: any[], current: any) => {
+      if (
+        (!subscriptions_user && video.videos.is_exclusive_for_premium) ||
+        (subscriptions_user.status === "cancelled" &&
+          video.videos.is_exclusive_for_premium)
+      )
+        throw createError(
+          statusCodes.badRequest,
+          "Non-Subscribed User cannot watch premium Videos"
+        );
+
+      const result = [video].reduce((acc: any[], current: any) => {
         const { videos: video, comments: comment } = current;
 
         // Check if the video is already added to the accumulator
@@ -156,7 +177,7 @@ router.get(
         }
 
         return acc;
-      }, [])[0];
+      }, []);
 
       res.status(statusCodes.ok).json({
         statusCode: statusCodes.ok,
@@ -173,22 +194,40 @@ router.get(
 );
 
 // Get All Videos API
-router.get("/", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const allVideos = await db.select().from(videos);
+router.get(
+  "/",
+  ensureAuthenticated,
+  async (req: any, res: Response, next: NextFunction) => {
+    try {
+      const user_id = req.user.user_id;
 
-    res.status(statusCodes.ok).json({
-      statusCode: statusCodes.ok,
-      ok: true,
-      message: "Videos fetched successfully",
-      data: {
-        videos: allVideos,
-      },
-    });
-  } catch (error) {
-    next(error);
+      const subscriptions_user = await db
+        .select()
+        .from(subscriptions)
+        .where(eq(subscriptions.user_id, user_id))
+        .then((res) => res[0]);
+
+      let allVideos = await db.select().from(videos);
+
+      if (!subscriptions_user || subscriptions_user.status === "cancelled") {
+        allVideos = allVideos.filter(
+          (video) => !video.is_exclusive_for_premium
+        );
+      }
+
+      res.status(statusCodes.ok).json({
+        statusCode: statusCodes.ok,
+        ok: true,
+        message: "Videos fetched successfully",
+        data: {
+          videos: allVideos,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 
 // Search Videos API
 router.get(
