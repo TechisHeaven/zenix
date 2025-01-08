@@ -1,0 +1,1 @@
+ALTER TABLE "playlists" ADD COLUMN "video_count" integer DEFAULT 0;

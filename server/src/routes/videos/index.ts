@@ -425,8 +425,8 @@ router.post(
           //   .where(eq(video_statistics.video_id, video_id));
         });
       }
-      res.status(statusCodes.ok).json({
-        statusCode: statusCodes.ok,
+      res.status(statusCodes.noContent).json({
+        statusCode: statusCodes.noContent,
         ok: true,
         message: "Video liked successfully",
       });
@@ -552,8 +552,8 @@ router.post(
         });
       }
 
-      res.status(statusCodes.ok).json({
-        statusCode: statusCodes.ok,
+      res.status(statusCodes.noContent).json({
+        statusCode: statusCodes.noContent,
         ok: true,
         message: "Video Disliked successfully",
       });
@@ -853,8 +853,8 @@ router.post(
         })
         .where(eq(videos.video_id, video_id));
 
-      res.status(statusCodes.ok).json({
-        statusCode: statusCodes.ok,
+      res.status(statusCodes.noContent).json({
+        statusCode: statusCodes.noContent,
         ok: true,
         message: "Video premium status updated successfully",
       });

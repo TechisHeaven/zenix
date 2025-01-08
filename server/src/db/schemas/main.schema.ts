@@ -47,6 +47,7 @@ export const playlists = pgTable("playlists", {
   title: text("title"),
   description: text("description"),
   is_public: boolean("is_public").default(true),
+  video_count: integer("video_count").default(0),
   created_at: timestamp("created_at").defaultNow(),
   updated_at: timestamp("updated_at")
     .defaultNow()

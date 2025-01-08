@@ -48,9 +48,15 @@ router.post("/subscribe", ensureAuthenticated, async (req: any, res, next) => {
       subscribed_at: new Date(),
     });
 
-    res
-      .status(200)
-      .send({ message: "Subscription successful", planId, paymentDetails });
+    res.status(statusCodes.ok).json({
+      statusCode: statusCodes.ok,
+      ok: true,
+      message: "Subscripted successfully",
+      data: {
+        planId,
+        paymentDetails,
+      },
+    });
   } catch (error) {
     next(error);
   }
@@ -81,6 +87,12 @@ router.post("/cancel", ensureAuthenticated, async (req: any, res, next) => {
       })
       .where(eq(subscriptions.user_id, user_id));
 
+    res.status(statusCodes.ok).json({
+      statusCode: statusCodes.ok,
+      ok: true,
+      message: "Subscription Cancelled successfully",
+      data: {},
+    });
     res.status(200).send({ message: "Subscription cancelled" });
   } catch (error) {
     next(error);
@@ -123,7 +135,12 @@ router.put("/subscribe", ensureAuthenticated, async (req: any, res, next) => {
       })
       .where(eq(subscriptions.user_id, user_id));
 
-    res.status(200).send({ message: "Subscription Updated" });
+    res.status(statusCodes.ok).json({
+      statusCode: statusCodes.ok,
+      ok: true,
+      message: "Subscription Updated successfully",
+      data: {},
+    });
   } catch (error) {
     next(error);
   }
@@ -145,9 +162,14 @@ router.get("/details", ensureAuthenticated, async (req: any, res, next) => {
       throw createError(statusCodes.notFound, "Subscription not found");
     }
 
-    res
-      .status(200)
-      .send({ message: "Subscription details", details: subscription });
+    res.status(statusCodes.ok).json({
+      statusCode: statusCodes.ok,
+      ok: true,
+      message: "Subscription Fetched successfully",
+      data: {
+        details: subscription,
+      },
+    });
   } catch (error) {
     next(error);
   }
