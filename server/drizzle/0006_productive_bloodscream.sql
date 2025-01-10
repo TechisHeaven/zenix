@@ -1,0 +1,1 @@
+ALTER TABLE "watch_history" ALTER COLUMN "watch_time" SET DEFAULT 0;

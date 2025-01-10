@@ -33,7 +33,7 @@ export const watch_history = pgTable("watch_history", {
     onDelete: "cascade",
     onUpdate: "cascade",
   }),
-  watch_time: integer("watch_time"),
+  watch_time: integer("watch_time").default(0),
   watched_at: timestamp("watched_at").defaultNow(),
   is_completed: boolean("is_completed").default(false),
 });
