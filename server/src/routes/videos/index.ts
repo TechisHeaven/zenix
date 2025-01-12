@@ -4,7 +4,7 @@ import express, { NextFunction, Request, Response } from "express";
 import { ensureAuthenticated, ensureEmailVerified } from "../../server";
 import { createError } from "../../utils/error.utils";
 import db from "../../db";
-import { and, eq, ilike } from "drizzle-orm";
+import { and, asc, desc, eq, ilike } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import {
   comments,
@@ -20,6 +20,8 @@ import statusCodes from "../../utils/status.utils";
 import sanitizedConfig from "../../utils/env.config";
 import { validateFields } from "../../utils/validate.config";
 import { upload_video_files } from "../../constants/requiredfields.constants";
+import { getSortColumn, withPagination } from "../../utils/pagination.utils";
+import { PAGE_SIZE_LIMIT } from "../../constants/main.constants";
 // import { video_statistics } from "../../db/schemas/main.schema";
 
 dotenv.config();
@@ -193,6 +195,12 @@ router.get(
   }
 );
 
+type QueryParams = {
+  page: string;
+  limit: string;
+  sort: "asc" | "desc";
+  sortBy: string;
+};
 // Get All Videos API
 router.get(
   "/",
@@ -200,6 +208,12 @@ router.get(
   async (req: any, res: Response, next: NextFunction) => {
     try {
       const user_id = req.user.user_id;
+      const {
+        page = 1,
+        limit = PAGE_SIZE_LIMIT,
+        sort = "asc",
+        sortBy,
+      } = req.query as QueryParams;
 
       const subscriptions_user = await db
         .select()
@@ -207,13 +221,21 @@ router.get(
         .where(eq(subscriptions.user_id, user_id))
         .then((res) => res[0]);
 
-      let allVideos = await db.select().from(videos);
+      let query: any = db.select().from(videos);
 
       if (!subscriptions_user || subscriptions_user.status === "cancelled") {
-        allVideos = allVideos.filter(
-          (video) => !video.is_exclusive_for_premium
-        );
+        query = query.where(and(eq(videos.is_exclusive_for_premium, false)));
       }
+
+      // Get Sorted Column for Dynamic Fetching
+      const sortColumn = getSortColumn(videos, sortBy, "updated_at");
+
+      const allVideos = await withPagination(
+        query.$dynamic(),
+        sort === "asc" ? asc(sortColumn) : desc(sortColumn),
+        parseInt(page as string),
+        parseInt(limit as string)
+      );
 
       res.status(statusCodes.ok).json({
         statusCode: statusCodes.ok,
@@ -234,16 +256,31 @@ router.get(
   "/search/video",
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { q } = req.query;
+      const {
+        q,
+        page = 1,
+        limit = PAGE_SIZE_LIMIT,
+        sort = "asc",
+        sortBy,
+      } = req.query;
 
       if (!q) {
         throw createError(statusCodes.badRequest, "Search term is required");
       }
 
-      const searchResults = await db
+      const sortColumn = getSortColumn(videos, sortBy, "updated_at");
+
+      const query = db
         .select()
         .from(videos)
         .where(ilike(videos.title, `%${q}%`));
+
+      const searchResults = await withPagination(
+        query.$dynamic(),
+        sort === "asc" ? asc(sortColumn) : desc(sortColumn),
+        parseInt(page as string),
+        parseInt(limit as string)
+      );
 
       res.status(statusCodes.ok).json({
         statusCode: statusCodes.ok,
@@ -425,8 +462,8 @@ router.post(
           //   .where(eq(video_statistics.video_id, video_id));
         });
       }
-      res.status(statusCodes.noContent).json({
-        statusCode: statusCodes.noContent,
+      res.status(statusCodes.ok).json({
+        statusCode: statusCodes.ok,
         ok: true,
         message: "Video liked successfully",
       });
@@ -552,8 +589,8 @@ router.post(
         });
       }
 
-      res.status(statusCodes.noContent).json({
-        statusCode: statusCodes.noContent,
+      res.status(statusCodes.ok).json({
+        statusCode: statusCodes.ok,
         ok: true,
         message: "Video Disliked successfully",
       });
@@ -695,6 +732,12 @@ router.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { video_id } = req.params;
+      const {
+        page = 1,
+        limit = PAGE_SIZE_LIMIT,
+        sort = "asc",
+        sortBy,
+      } = req.query;
 
       if (!video_id)
         throw createError(statusCodes.badRequest, "Video Id is required");
@@ -711,11 +754,20 @@ router.get(
         throw createError(statusCodes.notFound, "Video not found");
       }
 
-      // Get comments from the database
-      const videoComments = await db
+      const sortColumn = getSortColumn(comments, sortBy, "updated_at");
+
+      const query = db
         .select()
         .from(comments)
         .where(eq(comments.video_id, video_id));
+
+      // Get comments from the database
+      const videoComments = await withPagination(
+        query.$dynamic(),
+        sort === "asc" ? asc(sortColumn) : desc(sortColumn),
+        parseInt(page as string),
+        parseInt(limit as string)
+      );
 
       res.status(statusCodes.ok).json({
         statusCode: statusCodes.ok,
@@ -853,10 +905,11 @@ router.post(
         })
         .where(eq(videos.video_id, video_id));
 
-      res.status(statusCodes.noContent).json({
-        statusCode: statusCodes.noContent,
+      res.status(statusCodes.ok).json({
+        statusCode: statusCodes.ok,
         ok: true,
         message: "Video premium status updated successfully",
+        data: {},
       });
     } catch (error) {
       next(error);
