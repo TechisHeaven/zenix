@@ -12,6 +12,7 @@ import { createError } from "../../../utils/error.utils";
 import { uuidRegexTest } from "../../../utils/uuidRegexTest";
 import { getSortColumn, withPagination } from "../../../utils/pagination.utils";
 import { PAGE_SIZE_LIMIT } from "../../../constants/main.constants";
+import { videos } from "../../../db/schemas/video.schema";
 
 const router = express.Router();
 
@@ -20,6 +21,17 @@ router.post("/", ensureAuthenticated, async (req: any, res, next) => {
   try {
     const user_id = req.user.user_id;
     const { video_id } = req.body;
+
+    if (!video_id)
+      throw createError(statusCodes.badRequest, "Video Id is Required");
+
+    const video = await db
+      .select()
+      .from(videos)
+      .where(eq(videos.video_id, video_id))
+      .then((res) => res[0]);
+
+    if (!video) throw createError(statusCodes.badRequest, "Video Not Exists");
 
     const download_exists = await db
       .select()
@@ -36,13 +48,20 @@ router.post("/", ensureAuthenticated, async (req: any, res, next) => {
         statusCodes.badRequest,
         "Download History Already Exists"
       );
+
     const download_id = uuidv4();
     // Add download history logic here
-    await db.insert(download_history).values({
-      download_id,
-      user_id,
-      video_id,
-      download_at: new Date(),
+
+    await db.transaction(async (tx) => {
+      tx.insert(download_history).values({
+        download_id,
+        user_id,
+        video_id,
+        download_at: new Date(),
+      }),
+        tx.update(videos).set({
+          download_count: video.download_count!++,
+        });
     });
 
     res.status(statusCodes.created).json({
@@ -105,15 +124,29 @@ router.delete(
       if (!uuidRegexTest(video_id))
         throw createError(statusCodes.badRequest, "Invalid Video Id");
 
+      const video = await db
+        .select()
+        .from(videos)
+        .where(eq(videos.video_id, video_id))
+        .then((res) => res[0]);
+
+      if (!video) throw createError(statusCodes.badRequest, "Video Not Exists");
+
       // Delete download history logic here
-      await db
-        .delete(download_history)
-        .where(
-          and(
-            eq(download_history.user_id, user_id),
-            eq(download_history.user_id, user_id)
-          )
-        );
+      await db.transaction(async (tx) => {
+        tx
+          .delete(download_history)
+          .where(
+            and(
+              eq(download_history.user_id, user_id),
+              eq(download_history.user_id, user_id)
+            )
+          ),
+          tx.update(videos).set({
+            download_count:
+              video.download_count === 0 ? 0 : video.download_count!--,
+          });
+      });
 
       res.status(statusCodes.ok).json({
         statusCode: statusCodes.ok,

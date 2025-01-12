@@ -7,3 +7,4 @@ export const MAX_PASSWORD_LENGTH = 6;
 export const PLAN_ONE = "basic";
 export const PLAN_TWO = "premium";
 export const PAGE_SIZE_LIMIT = 10;
+export const CANCELLED_STATUS = "cancelled";

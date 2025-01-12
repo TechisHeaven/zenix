@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { users } from "./user.schema"; // Assuming you have a user schema file
 import {
   pgTable,
@@ -20,8 +21,12 @@ export const videos = pgTable("videos", {
     onDelete: "cascade",
     onUpdate: "cascade",
   }),
-  tags: jsonb("tags"),
-  category: text("category"),
+  tags: text("tags")
+    .array()
+    .default(sql`ARRAY[]::text[]`),
+  category: text("category")
+    .array()
+    .default(sql`ARRAY[]::text[]`),
   resolution: text("resolution"),
   file_size: integer("file_size"),
   duration: integer("duration"),

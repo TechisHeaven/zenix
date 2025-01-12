@@ -4,7 +4,18 @@ import express, { NextFunction, Request, Response } from "express";
 import { ensureAuthenticated, ensureEmailVerified } from "../../server";
 import { createError } from "../../utils/error.utils";
 import db from "../../db";
-import { and, asc, desc, eq, ilike } from "drizzle-orm";
+import {
+  and,
+  arrayContains,
+  arrayOverlaps,
+  asc,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  or,
+  sql,
+} from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import {
   comments,
@@ -21,7 +32,10 @@ import sanitizedConfig from "../../utils/env.config";
 import { validateFields } from "../../utils/validate.config";
 import { upload_video_files } from "../../constants/requiredfields.constants";
 import { getSortColumn, withPagination } from "../../utils/pagination.utils";
-import { PAGE_SIZE_LIMIT } from "../../constants/main.constants";
+import {
+  CANCELLED_STATUS,
+  PAGE_SIZE_LIMIT,
+} from "../../constants/main.constants";
 // import { video_statistics } from "../../db/schemas/main.schema";
 
 dotenv.config();
@@ -66,7 +80,7 @@ router.post(
       const user_id = req.user.user_id;
       // const metadata = req.body.metadata;
       // console.log(metadata);
-      const { title, description } = req.body;
+      const { title, description, tags, category } = req.body;
       // typeof metadata === "string" ? JSON.parse(metadata) : metadata || {};
 
       const file = req.file;
@@ -101,6 +115,8 @@ router.post(
           description,
           url: file.location,
           file_size: file.size,
+          tags,
+          category,
         });
         // await tx.insert(video_statistics).values({
         //   stat_id,
@@ -243,6 +259,79 @@ router.get(
         message: "Videos fetched successfully",
         data: {
           videos: allVideos,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Fetch Feed for User
+router.get(
+  "/feed/video",
+  ensureAuthenticated,
+  async (req: any, res: Response, next: NextFunction) => {
+    try {
+      const user_id = req.user.user_id; // Assuming user info is attached to the request
+      const limit = parseInt(req.query.limit) || 10;
+      const page = parseInt(req.query.page) || 1;
+      const offset = (page - 1) * limit;
+
+      let isPremiumUser = await db
+        .select()
+        .from(subscriptions)
+        .where(eq(subscriptions.user_id, user_id))
+        .then((res) => res[0]);
+      // const isPremium = true;
+      const isPremium = Boolean(isPremiumUser.status !== CANCELLED_STATUS);
+
+      // Fetch user preferences or interaction data (mocked here)
+      const userPreferences = await db
+        .selectDistinct({ tags: videos.tags, category: videos.category })
+        .from(videos)
+        .leftJoin(video_likes, eq(video_likes.user_id, user_id))
+        .where(eq(video_likes.user_id, user_id))
+        .limit(10);
+
+      const tagsArray = userPreferences
+        .map((pref) => pref.tags)
+        .flat()
+        .filter((tag): tag is string => tag !== null);
+
+      const categoriesArray = userPreferences
+        .map((pref) => pref.category)
+        .flat()
+        .filter((category): category is string => category !== null);
+
+      // Fetch videos matching preferences
+      const personalizedFeed = await db
+        .select()
+        .from(videos)
+        .where(
+          and(
+            eq(videos.is_public, true),
+            isPremium ? sql`true` : eq(videos.is_exclusive_for_premium, false),
+            or(
+              tagsArray.length > 0
+                ? arrayOverlaps(videos.tags, tagsArray)
+                : sql`false` // Avoid `arrayOverlaps` if tags are empty
+              // categoriesArray.length > 0
+              //   ? arrayOverlaps(videos.category, categoriesArray)
+              //   : sql`true` // Avoid `&&` operation if categories are empty
+            )
+          )
+        )
+        .orderBy(desc(videos.uploaded_at))
+        .limit(limit)
+        .offset(offset);
+
+      res.status(statusCodes.ok).json({
+        statusCode: statusCodes.ok,
+        ok: true,
+        message: "Video Fetched successfully",
+        data: {
+          videos: personalizedFeed,
         },
       });
     } catch (error) {

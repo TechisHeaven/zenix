@@ -7,7 +7,11 @@ import { validateFields } from "../../utils/validate.config";
 import { createError } from "../../utils/error.utils";
 import statusCodes from "../../utils/status.utils";
 import { eq } from "drizzle-orm";
-import { PLAN_ONE, PLAN_TWO } from "../../constants/main.constants";
+import {
+  CANCELLED_STATUS,
+  PLAN_ONE,
+  PLAN_TWO,
+} from "../../constants/main.constants";
 const router = express.Router();
 
 // Subscribe to Premium
@@ -34,7 +38,10 @@ router.post("/subscribe", ensureAuthenticated, async (req: any, res, next) => {
       .where(eq(subscriptions.user_id, user_id))
       .then((res) => res[0]);
 
-    if (subscriptions_exists && subscriptions_exists.status === "cancelled")
+    if (
+      subscriptions_exists &&
+      subscriptions_exists.status === CANCELLED_STATUS
+    )
       throw createError(statusCodes.badRequest, "User Already Subscription");
 
     const subscription_id = uuidv4();
@@ -73,7 +80,10 @@ router.post("/cancel", ensureAuthenticated, async (req: any, res, next) => {
       .where(eq(subscriptions.user_id, user_id))
       .then((res) => res[0]);
 
-    if (subscriptions_exists && subscriptions_exists.status === "cancelled")
+    if (
+      subscriptions_exists &&
+      subscriptions_exists.status === CANCELLED_STATUS
+    )
       throw createError(
         statusCodes.badRequest,
         "Subscription Already Cancelled"
@@ -82,7 +92,7 @@ router.post("/cancel", ensureAuthenticated, async (req: any, res, next) => {
     await db
       .update(subscriptions)
       .set({
-        status: "cancelled",
+        status: CANCELLED_STATUS,
         cancelled_at: new Date(),
       })
       .where(eq(subscriptions.user_id, user_id));
