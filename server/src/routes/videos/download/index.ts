@@ -7,9 +7,11 @@ import {
 import db from "../../../db";
 import { v4 as uuidv4 } from "uuid";
 import statusCodes from "../../../utils/status.utils";
-import { and, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { createError } from "../../../utils/error.utils";
 import { uuidRegexTest } from "../../../utils/uuidRegexTest";
+import { getSortColumn, withPagination } from "../../../utils/pagination.utils";
+import { PAGE_SIZE_LIMIT } from "../../../constants/main.constants";
 
 const router = express.Router();
 
@@ -58,12 +60,28 @@ router.post("/", ensureAuthenticated, async (req: any, res, next) => {
 router.get("/", ensureAuthenticated, async (req: any, res, next) => {
   try {
     const user_id = req.user.user_id;
+    const {
+      page = 1,
+      limit = PAGE_SIZE_LIMIT,
+      sort = "asc",
+      sortBy,
+    } = req.query;
 
     // Get download history logic here
-    const history = await db
+    const query = db
       .select()
       .from(download_history)
       .where(eq(download_history.user_id, user_id));
+
+    const sortColumn = getSortColumn(download_history, sortBy, "added_at");
+
+    // Get Playlists from the database
+    const history = await withPagination(
+      query.$dynamic(),
+      sort === "asc" ? asc(sortColumn) : desc(sortColumn),
+      parseInt(page as string),
+      parseInt(limit as string)
+    );
 
     res.status(statusCodes.ok).json({
       statusCode: statusCodes.ok,

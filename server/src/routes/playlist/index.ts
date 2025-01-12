@@ -5,13 +5,15 @@ import { uuidRegexTest } from "../../utils/uuidRegexTest";
 import { createError } from "../../utils/error.utils";
 import statusCodes from "../../utils/status.utils";
 import db from "../../db";
-import { and, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { validateFields } from "../../utils/validate.config";
 import { playlist_videos, playlists } from "../../db/schemas/main.schema";
 import { v4 as uuidv4 } from "uuid";
 import { alias } from "drizzle-orm/pg-core";
 import { videos } from "../../db/schemas/video.schema";
 import { transformPlaylistVideosData } from "../../utils/format.utils";
+import { getSortColumn, withPagination } from "../../utils/pagination.utils";
+import { PAGE_SIZE_LIMIT } from "../../constants/main.constants";
 dotenv.config();
 const router = express.Router();
 
@@ -111,11 +113,27 @@ router.get(
   async (req: any, res: Response, next: NextFunction) => {
     try {
       const user_id = req.user.user_id;
+      const {
+        page = 1,
+        limit = PAGE_SIZE_LIMIT,
+        sort = "asc",
+        sortBy,
+      } = req.query;
 
-      let playlists_result = await db
+      const sortColumn = getSortColumn(playlists, sortBy, "updated_at");
+
+      let query = db
         .select()
         .from(playlists)
         .where(eq(playlists.user_id, user_id));
+
+      // Get Playlists from the database
+      const playlists_result = await withPagination(
+        query.$dynamic(),
+        sort === "asc" ? asc(sortColumn) : desc(sortColumn),
+        parseInt(page as string),
+        parseInt(limit as string)
+      );
 
       res.status(statusCodes.ok).json({
         statusCode: statusCodes.ok,
@@ -138,12 +156,29 @@ router.get(
     try {
       const { user_id } = req.params;
 
-      let playlists_result = await db
+      const {
+        page = 1,
+        limit = PAGE_SIZE_LIMIT,
+        sort = "asc",
+        sortBy,
+      } = req.query;
+
+      const sortColumn = getSortColumn(playlists, sortBy, "updated_at");
+
+      let query = db
         .select()
         .from(playlists)
         .where(
           and(eq(playlists.user_id, user_id), eq(playlists.is_public, true))
         );
+
+      // Get Playlists from the database
+      const playlists_result = await withPagination(
+        query.$dynamic(),
+        sort === "asc" ? asc(sortColumn) : desc(sortColumn),
+        parseInt(page as string),
+        parseInt(limit as string)
+      );
 
       res.status(statusCodes.ok).json({
         statusCode: statusCodes.ok,
@@ -385,6 +420,13 @@ router.get(
     try {
       const { playlist_id } = req.params;
 
+      const {
+        page = 1,
+        limit = PAGE_SIZE_LIMIT,
+        sort = "asc",
+        sortBy,
+      } = req.query;
+
       if (!uuidRegexTest(playlist_id))
         throw createError(statusCodes.badRequest, " Playlist Id isn't Valid");
 
@@ -397,11 +439,20 @@ router.get(
       if (!playlist)
         throw createError(statusCodes.notFound, "Playlist Not Found");
 
-      let playlist_videos_result = await db
+      const sortColumn = getSortColumn(playlist_videos, sortBy, "added_at");
+      let query = db
         .select()
         .from(playlist_videos)
         .where(eq(playlist_videos.playlist_id, playlist_id))
         .leftJoin(videos, eq(playlist_videos.video_id, videos.video_id));
+
+      // Get Playlists from the database
+      const playlist_videos_result = await withPagination(
+        query.$dynamic(),
+        sort === "asc" ? asc(sortColumn) : desc(sortColumn),
+        parseInt(page as string),
+        parseInt(limit as string)
+      );
 
       const newPlaylist_videos_result = transformPlaylistVideosData(
         playlist_videos_result
