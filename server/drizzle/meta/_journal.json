@@ -92,6 +92,90 @@
       "when": 1736693409651,
       "tag": "0012_long_photon",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1736698689120,
+      "tag": "0013_young_korvac",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1736698867976,
+      "tag": "0014_mature_zaran",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1736698936955,
+      "tag": "0015_handy_starfox",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1736698981426,
+      "tag": "0016_cooing_havok",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1736699065461,
+      "tag": "0017_furry_xorn",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1736699292763,
+      "tag": "0018_skinny_rafael_vega",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1736699349632,
+      "tag": "0019_wealthy_wong",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1736699414214,
+      "tag": "0020_mighty_james_howlett",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1736699569789,
+      "tag": "0021_colossal_tusk",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1736699591002,
+      "tag": "0022_flippant_scorpion",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1736699777453,
+      "tag": "0023_bored_gertrude_yorkes",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1736699813240,
+      "tag": "0024_romantic_sheva_callister",
+      "breakpoints": true
     }
   ]
 }

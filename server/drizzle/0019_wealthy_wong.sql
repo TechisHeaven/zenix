@@ -1,0 +1,1 @@
+DROP INDEX "video_idx";

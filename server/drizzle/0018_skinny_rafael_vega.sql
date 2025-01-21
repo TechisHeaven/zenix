@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "video_idx" ON "video_statistics" USING btree ("video_id");

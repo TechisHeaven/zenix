@@ -1,0 +1,1 @@
+ALTER TABLE "video_statistics" ALTER COLUMN "video_id" SET DATA TYPE uuid;

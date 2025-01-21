@@ -8,6 +8,7 @@ import {
   boolean,
   integer,
   jsonb,
+  real,
 } from "drizzle-orm/pg-core";
 
 export const videos = pgTable("videos", {
@@ -78,5 +79,27 @@ export const video_reports = pgTable("video_reports", {
     onDelete: "cascade",
   }),
   reason: text("reason"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const video_statistics = pgTable("video_statistics", {
+  stat_id: uuid("stat_id").primaryKey(),
+  video_id: uuid("video_id")
+    .notNull()
+    .references(() => videos.video_id, {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+    }),
+  total_views: integer("total_views").default(0),
+  total_likes: integer("total_likes").default(0),
+  total_dislikes: integer("total_likes").default(0),
+  total_comments: integer("total_comments").default(0),
+  total_shares: integer("total_shares").default(0),
+  total_watch_time: real("total_watch_time").default(0),
+  engagement_rate: real("engagement_rate").default(0),
+  premium_views: real("premium_views").default(0),
+  average_watch_time: real("average_watch_time"),
+  highest_watch_time: real("highest_watch_time"),
+  updated_at: timestamp("updated_at").defaultNow(),
   created_at: timestamp("created_at").defaultNow(),
 });
