@@ -10,7 +10,7 @@ type SectionProps = PropsWithChildren<{
 }>;
 type HomeScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
-  'Home'
+  'Settings'
 >;
 export default function Settings() {
   const navigation = useNavigation<HomeScreenNavigationProp>();

@@ -17,6 +17,8 @@ import SearchButton from './src/components/Buttons/SearchButton';
 import Settings from './src/screens/Settings';
 import Video from './src/screens/Video';
 import {RootStackParamList} from './src/types/navigation.type';
+import Password from './src/screens/Login/password';
+import RegisterScreen from './src/screens/Register';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -75,6 +77,16 @@ function Root(): React.JSX.Element {
                 headerShown: false,
                 headerStyle: {backgroundColor: 'green'},
               }}
+            />
+            <Stack.Screen
+              name="Password"
+              options={{headerShown: false}}
+              component={Password}
+            />
+            <Stack.Screen
+              name="Register"
+              options={{headerShown: false}}
+              component={RegisterScreen}
             />
           </Stack.Group>
         )}

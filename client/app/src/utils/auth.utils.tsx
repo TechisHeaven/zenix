@@ -13,6 +13,9 @@ export const useAuth = () => {
   const login = (user: UserState, token: string) => {
     loginAction(dispatch, user, token);
   };
+  const register = (user: UserState, token: string) => {
+    loginAction(dispatch, user, token);
+  };
 
   const logout = () => {
     logoutAction(dispatch);
@@ -27,6 +30,7 @@ export const useAuth = () => {
     user: state.user,
     isAuthenticated,
     login,
+    register,
     logout,
     loading: state.userLoading,
     refreshUser,

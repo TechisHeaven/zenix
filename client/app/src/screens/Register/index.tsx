@@ -13,16 +13,22 @@ import {useNavigation} from '@react-navigation/native';
 import {RootStackParamList} from '../../types/navigation.type';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {validateEmail} from '../../utils/validate.utils';
+import {Eye, EyeClosed} from 'lucide-react-native';
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
   'Login'
 >;
-const LoginScreen = () => {
+const RegisterScreen = () => {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [inputFocus, setInputFocus] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigation = useNavigation<HomeScreenNavigationProp>();
+  const {register} = useAuth();
+
+  const [isVisible, setIsVisible] = useState(false);
   const handleLogin = () => {
     if (email.length === 0) {
       setError('Email cannot be empty');
@@ -35,12 +41,14 @@ const LoginScreen = () => {
 
     const isEmailAlreadyExists = false;
 
-    if (!isEmailAlreadyExists) navigation.navigate('Password', {email: email});
-
-    navigation.navigate('Register', {email: email});
+    register({name, email, password}, 'dummy-token');
+    // navigation.navigate('Register', {email: email});
   };
   const handleFocus = () => {
     setInputFocus(true);
+  };
+  const handleBlur = () => {
+    setInputFocus(false);
   };
   return (
     <View style={styles.container}>
@@ -51,11 +59,20 @@ const LoginScreen = () => {
           height={75}
           style={{width: 75, height: 75, tintColor: 'white'}}
         />
-        <Text style={styles.title}>Welcome to Zenix</Text>
+        <Text style={styles.title}>Register to Zenix</Text>
         <Text style={styles.subtitle}>
-          Use your email to Login to Zenix. Don't have one? You can register
-          later.
+          Use your email and details to Register to Zenix.
         </Text>
+        <TextInput
+          style={[styles.input, {borderColor: inputFocus ? '#e5e0d2' : 'gray'}]}
+          value={name}
+          onChangeText={setName}
+          keyboardType="default"
+          autoCapitalize="none"
+          placeholder="Enter your name"
+          textContentType="name"
+          onFocus={handleFocus}
+        />
         <TextInput
           style={[styles.input, {borderColor: inputFocus ? '#e5e0d2' : 'gray'}]}
           value={email}
@@ -66,6 +83,34 @@ const LoginScreen = () => {
           textContentType="emailAddress"
           onFocus={handleFocus}
         />
+        <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <TextInput
+            style={[
+              loginStyles.input,
+              {borderColor: inputFocus ? '#e5e0d2' : 'gray', flex: 1},
+            ]}
+            value={password}
+            onChangeText={setPassword}
+            textContentType="password"
+            placeholder="Enter your Password"
+            autoComplete="password"
+            secureTextEntry={!isVisible}
+            passwordRules={
+              'required: upper; required: lower; required: digit; minlength: 8; maxlength: 16;'
+            }
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+          />
+          <TouchableOpacity
+            onPress={() => setIsVisible(!isVisible)}
+            style={{padding: 6}}>
+            {isVisible ? (
+              <Eye size={16} color={'#f2f2f2'} />
+            ) : (
+              <EyeClosed size={16} color={'#f2f2f2'} />
+            )}
+          </TouchableOpacity>
+        </View>
         {error && <Text style={styles.errorText}>{error}</Text>}
       </View>
       <View style={{gap: 12}}>
@@ -87,7 +132,7 @@ const LoginScreen = () => {
   );
 };
 
-export default LoginScreen;
+export default RegisterScreen;
 
 const styles = StyleSheet.create({
   container: {
